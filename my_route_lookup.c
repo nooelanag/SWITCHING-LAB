@@ -30,7 +30,7 @@ int generateTrie(Node *root, int **binaryArray) {
 	int result;
 	while((result = readFIBLine(prefix, prefixLength, outInterface)) != EOF) {
 		if (result != OK) return result;
-		decToBin(binaryArray);
+		decToBin(prefix, binaryArray);
 		for (int i = 0; i < prefixLength; i++) {
 			if (binaryArray[i] == 0) {
 				if (i != prefixLength - 1) {
@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 	compressTrie(root);
-	uint32_t *IPAddress;
+	uint32_t *IPAddress; //Puntero a la IP address
 	struct timespec initialTime;
 	struct timespec finalTime;
 	double searchingTime;
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
 		clock_gettime(CLOCK_MONOTONIC_RAW, &initialTime);
 		//lookup function
 		clock_gettime(CLOCK_MONOTONIC_RAW, &finalTime);
-		printOutputLine(IPAddress, /*outInterface*/, &initialTime, &finalTime, &searchingTime, /*accessedTable*/); //No entiendo la accessedTable porque no usamos hashes
+		printOutputLine(IPAddress, /*outInterface*/, &initialTime, &finalTime, &searchingTime, /*numberOfAccesses*/);
 		totalNodeAccesses += nodeAccesses;
 		processedPackets++;
 		totalPacketProcessingTime += searchingTime;
