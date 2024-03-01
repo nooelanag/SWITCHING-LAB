@@ -96,6 +96,31 @@ void compressTrie(Node *node) {
 	}
 }
 
+
+
+void lookup(Node *root, *IPAddress,*OutputPort){
+	Node *currentNode = root;
+	outputPort = NULL;
+	while((result = readFIBLine(prefix, prefixLength, outInterface)) != EOF) {
+		if (result != OK) return result;
+	for (int i = 0; i < prefixLength; i++) {
+		if(currentNode->outInterface != NULL){
+			OutputPort = currentNode->outInterface;
+		end if;
+		if(binaryArray[i+1] = 0){
+			currentNode = currentNode->leftSon;
+		}else{
+			curretnNode = currentNode->rightSon;
+		end if;
+	
+
+		
+
+}
+
+
+
+
 int main(int argc, char *argv[]) {
 	if (argc != 3) exit(1);
 	if ((int result = initializeIO(argv[1], argv[2])) != OK) {
@@ -122,6 +147,7 @@ int main(int argc, char *argv[]) {
 	}
 	compressTrie(root);
 	uint32_t *IPAddress; //Puntero a la IP address
+	int OutputPort; //---------------------------------"int *" o solo "int"
 	struct timespec initialTime;
 	struct timespec finalTime;
 	double searchingTime;
