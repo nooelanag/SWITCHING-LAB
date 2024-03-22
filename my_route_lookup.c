@@ -1,177 +1,239 @@
 #include "io.h"
 #include "my_route_lookup.h"
-#include "utils.h"
 
-void decToBin(uint32_t prefix, int **binaryArray) {
-	for (int i = 31; i >= 0; i--) {
-		binaryArray[i] = prefix & 1;
-        prefix >>= 1;
-	}
-}
 
-Node * createNode(int *outInterface, int *result) {
-	Node *node = (Node *)malloc(sizeof(Node));
-	if (node == NULL) {
-        result = MEMORY_ALLOCATION_FAILED;
-		return;
-    }
-	node->outInterface = outInterface;
-	node->leftSon = NULL;
-	node->rightSon = NULL;
-	result = OK;
-	return node;
-}
-
-int generateTrie(Node *root, int **binaryArray) {
-	Node *currentNode = root;
-	uint32_t *prefix;
-	int *prefixLength;
-	int *outInterface;
-	int result;
-	while((result = readFIBLine(prefix, prefixLength, outInterface)) != EOF) {
-		if (result != OK) return result;
-		decToBin(prefix, binaryArray);
-		for (int i = 0; i < prefixLength; i++) {
-			if (binaryArray[i] == 0) {
-				if (i != prefixLength - 1) {
-					if (currentNode->leftSon == NULL) {
-						currentNode->leftSon = createNode(NULL, &result);
-						if (result != OK) return result;
-					}
-				} else {
-					if (currentNode->leftSon == NULL) {
-						currentNode->leftSon = createNode(outInterface);
-						if (result != OK) return result;
-					} else {
-						currentNode->leftSon->outInterface = outInterface;
-					}
-				}
-				currentNode = currentNode->leftSon
-			} else {
-				if (i != prefixLength - 1) {
-					if (currentNode->rightSon == NULL) {
-						currentNode->rightSon = createNode(NULL);
-						if (result != OK) return result;
-					}
-				} else {
-					if (currentNode->rightSon == NULL) {
-						currentNode->rightSon = createNode(outInterface);
-						if (result != OK) return result;
-					} else {
-						currentNode->rightSon->outInterface = outInterface;
-					}
-				}
+void compressTrie(struct Node *root) {
+	if (root != NULL) {
+		if (root->outInterface == NULL) {
+			if (root->leftSon != NULL && root->rightSon == NULL) {
+				struct Node *child = root->leftSon;
+				root->outInterface = child->outInterface;
+        		root->leftSon = child->leftSon;
+        		root->rightSon = child->rightSon;
+        		free(child);
+				compressTrie(root);
+			} else if (root->leftSon == NULL && root->rightSon != NULL) {
+				struct Node *child = root->rightSon;
+				root->outInterface = child->outInterface;
+        		root->leftSon = child->leftSon;
+        		root->rightSon = child->rightSon;
+        		free(child);
+				compressTrie(root);
 			}
 		}
-	}
-	free(binaryArray);
-	return OK;
-}
-
-void traverseTrie(Node *node, int *NumberOfNodesInTrie) {
-	if (node != NULL) {
-		NumberOfNodesInTrie++;
-		traverseTrie(node->leftSon, NumberOfNodesInTrie);
-		traverseTrie(node->rightSon, NumberOfNodesInTrie);
-	}
-}
-
-void compressTrie(Node *node) {
-	if (node != NULL) {
-		if (node->leftSon != NULL & node->rightSon == NULL) {
-			Node *temp = node->leftSon;
-			node->outInterface = node->leftSon->outInterface;
-			node->leftSon = node->leftSon->leftSon;
-			node->rightSon = node->leftSon->rightSon;
-			free(temp);
-		} else if (node->leftSon == NULL & node->rightSon != NULL) {
-			Node *temp = node->rightSon;
-			node->outInterface = node->rightSon->outInterface;
-			node->leftSon = node->rightSon->leftSon;
-			node->rightSon = node->rightSon->rightSon;
-			free(temp);
-		}
-		compressTrie(node->leftSon);
-		compressTrie(node->rightSon);
-	}
-}
-
-
-
-void lookup(Node *root, *IPAddress,*OutputPort){
-	Node *currentNode = root;
-	outputPort = NULL;
-	while((result = readFIBLine(prefix, prefixLength, outInterface)) != EOF) {
-		if (result != OK) return result;
-	for (int i = 0; i < prefixLength; i++) {
-		if(currentNode->outInterface != NULL){
-			OutputPort = currentNode->outInterface;
-		end if;
-		if(binaryArray[i+1] = 0){
-			currentNode = currentNode->leftSon;
-		}else{
-			curretnNode = currentNode->rightSon;
-		end if;
-	
-
 		
-
+		compressTrie(root->leftSon);
+		compressTrie(root->rightSon);
+	}
 }
 
 
+struct Node *createNode(int *outInterface, struct Node *root) {
+    struct Node *node = malloc(sizeof(struct Node));
+
+    if (node == NULL) {
+		freeIO();
+		freeTrie(root);
+        printErrors(MEMORY_ALLOCATION_FAILED);
+        exit(1);
+    }
+
+    if (outInterface != NULL) {
+        node->outInterface = malloc(sizeof(int));
+
+        if (node->outInterface == NULL) {
+			freeIO();
+            freeNode(node);
+			freeTrie(root);
+            printErrors(MEMORY_ALLOCATION_FAILED);
+        	exit(1);
+        }
+
+        *(node->outInterface) = *outInterface;
+    } else node->outInterface = NULL;
+
+    node->leftSon = NULL;
+    node->rightSon = NULL;
+    return node;
+}
 
 
-int main(int argc, char *argv[]) {
-	if (argc != 3) exit(1);
-	if ((int result = initializeIO(argv[1], argv[2])) != OK) {
+void freeNode(struct Node *node) {
+	if (node != NULL) {
+		if (node->outInterface != NULL) free(node->outInterface);
+		free(node);
+	}
+}
+
+
+void freeTrie(struct Node *root) {
+	if (root != NULL) {
+		freeTrie(root->leftSon);
+		freeTrie(root->rightSon);
+		freeNode(root);
+	}
+}
+
+
+void generateTrie(struct Node *root) {
+	struct Node *currentNode = root;
+	int outInterface;
+	uint32_t prefix;
+	int prefixLength;
+	int result;
+
+	while((result = readFIBLine(&prefix, &prefixLength, &outInterface)) != REACHED_EOF) {
+		if (result != OK) {
+			freeIO();
+			freeTrie(root);
+			printIOExplanationError(result);
+			exit(1);
+		}
+		
+		if (prefixLength == 0) {
+			root->outInterface = malloc(sizeof(int));
+
+			if (root->outInterface == NULL) {
+				freeIO();
+            	freeTrie(root);
+            	printErrors(MEMORY_ALLOCATION_FAILED);
+        		exit(1);
+        	}
+
+			*(root->outInterface) = outInterface;
+		}
+
+		uint32_t mask = 1u << 31;
+		
+		for (int i = 0; i < prefixLength; i++) {
+			int bit = (prefix & mask) ? 1 : 0;
+			mask = mask >> 1;
+			
+			if (bit == 0) {
+				if (i != prefixLength - 1) {
+					if (currentNode->leftSon == NULL) currentNode->leftSon = createNode(NULL, root);
+				} else {
+					if (currentNode->leftSon == NULL) currentNode->leftSon = createNode(&outInterface, root);
+					else *(currentNode->leftSon->outInterface) = outInterface;
+				}
+				
+				currentNode = currentNode->leftSon;
+			} else {
+				if (i != prefixLength - 1) {
+					if (currentNode->rightSon == NULL) currentNode->rightSon = createNode(NULL, root);
+				} else {
+					if (currentNode->rightSon == NULL) currentNode->rightSon = createNode(&outInterface, root);
+					else *(currentNode->rightSon->outInterface) = outInterface;
+				}
+				
+				currentNode = currentNode->rightSon;
+			}
+		}
+
+		currentNode = root;
+	}
+}
+
+
+void lookup(uint32_t *IPAddress, int *numberOfAccesses, int *outInterface, struct Node *root) {
+	struct Node *currentNode = root;
+	*numberOfAccesses = 0;
+	uint32_t mask = 1u << 31;
+
+	for (int i = 0; i < 32; i++) {
+		int bit = (*IPAddress & mask) ? 1 : 0;
+		mask = mask >> 1;
+		(*numberOfAccesses)++;
+
+		if (currentNode->outInterface != NULL) *outInterface = *(currentNode->outInterface);
+
+		if (bit == 0 && currentNode->leftSon != NULL) currentNode = currentNode->leftSon;
+		else if (bit == 1 && currentNode->rightSon != NULL) currentNode = currentNode->rightSon;
+		else break;
+	}
+}
+
+
+void printErrors(int result) {
+	switch(result) {
+	case NOT_ENOUGH_ARGUMENTS:
+		printf("Not enough arguments\n");
+		break;
+	case TOO_MANY_ARGUMENTS:
+		printf("Too many arguments\n");
+		break;
+	case MEMORY_ALLOCATION_FAILED:
+		printf("Memory allocaction failed\n");
+	default:
+		printf("Unknown error\n");
+		break;
+	}
+}
+
+
+void traverseTrie(int *NumberOfNodesInTrie, struct Node *root) {
+	if (root != NULL) {
+		(*NumberOfNodesInTrie)++;
+		traverseTrie(NumberOfNodesInTrie, root->leftSon);
+		traverseTrie(NumberOfNodesInTrie, root->rightSon);
+	}
+}
+
+
+void main(int argc, char *argv[]) {
+	if (argc != 3) {
+		if (argc < 3) printErrors(NOT_ENOUGH_ARGUMENTS);
+		else printErrors(TOO_MANY_ARGUMENTS);
+		exit(1);
+	}
+
+	char *routingTableName = argv[1];
+	char *inputFileName = argv[2];
+	int result;
+
+	if ((result = initializeIO(routingTableName, inputFileName)) != OK) {
 		printIOExplanationError(result);
 		exit(1);
 	}
-	int *result;
-	Node *root = createNode(NULL, result);
-	if (result != OK) {
-        printf("Memory allocation failed\n");
-		freeIO();
-        exit(1);
-    }
-	int *binaryArray = (int *)malloc(32 * sizeof(int));
-	if (binaryArray == NULL) {
-        printf("Memory allocation failed\n");
-		freeIO();
-        exit(1);
-    }
-	if ((result = generateTrie(root, &binaryArray)) != OK) {
-		printf("Error\n");
-		freeIO();
-		exit(1);
-	}
+
+	struct Node *root = createNode(NULL, NULL);
+	generateTrie(root);
+	int NumberOfNodesInTrie2 = 0;
+	traverseTrie(&NumberOfNodesInTrie2, root);
+	printf("nodes: %d\n", NumberOfNodesInTrie2);
 	compressTrie(root);
-	uint32_t *IPAddress; //Puntero a la IP address
-	int OutputPort; //---------------------------------"int *" o solo "int"
+	int NumberOfNodesInTrie = 0;
+	traverseTrie(&NumberOfNodesInTrie, root);
+	printf("compressed nodes: %d\n", NumberOfNodesInTrie);
 	struct timespec initialTime;
 	struct timespec finalTime;
-	double searchingTime;
-	int NumberOfNodesInTrie = 0;
+	uint32_t IPAddress;
+	int numberOfAccesses = 0;
+	int outInterface;
 	int processedPackets = 0;
-	int nodeAccesses = 0;
+	double searchingTime;
 	int totalNodeAccesses = 0;
 	double totalPacketProcessingTime = 0;
-	while ((result = readInputPacketFileLine(IPAddress)) != EOF) {
+
+	while ((result = readInputPacketFileLine(&IPAddress)) != REACHED_EOF) {
 		if (result != OK) {
-			printIOExplanationError(result);
 			freeIO();
+			freeTrie(root);
+			printIOExplanationError(result);
 			exit(1);
 		}
+
 		clock_gettime(CLOCK_MONOTONIC_RAW, &initialTime);
-		//lookup function
+		lookup(&IPAddress, &numberOfAccesses, &outInterface, root);
 		clock_gettime(CLOCK_MONOTONIC_RAW, &finalTime);
-		printOutputLine(IPAddress, /*outInterface*/, &initialTime, &finalTime, &searchingTime, /*numberOfAccesses*/);
-		totalNodeAccesses += nodeAccesses;
+		printOutputLine(IPAddress, outInterface, &initialTime, &finalTime, &searchingTime, numberOfAccesses);
 		processedPackets++;
+		totalNodeAccesses += numberOfAccesses;
 		totalPacketProcessingTime += searchingTime;
 	}
-	traverseTrie(&NumberOfNodesInTrie);
-	printSummary(NumberOfNodesInTrie, processedPackets, (double)totalNodeAccesses / processedPackets, (double)totalPacketProcessingTime / processedPackets);
+	
+	printSummary(NumberOfNodesInTrie, processedPackets, (double) (totalNodeAccesses / processedPackets), (double) (totalPacketProcessingTime / processedPackets));
 	freeIO();
+	freeTrie(root);
 	exit(0);
 }
