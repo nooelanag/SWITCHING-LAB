@@ -61,6 +61,7 @@ struct Node *createNode(int *outInterface, struct Node *root) {
 void freeNode(struct Node *node) {
 	if (node != NULL) {
 		if (node->outInterface != NULL) free(node->outInterface);
+
 		free(node);
 	}
 }
@@ -150,6 +151,7 @@ void lookup(uint32_t *IPAddress, int *numberOfAccesses, int *outInterface, struc
 		if (bit == 0 && currentNode->leftSon != NULL) currentNode = currentNode->leftSon;
 		else if (bit == 1 && currentNode->rightSon != NULL) currentNode = currentNode->rightSon;
 		else break;
+
 	}
 }
 
@@ -182,8 +184,10 @@ void traverseTrie(int *NumberOfNodesInTrie, struct Node *root) {
 
 void main(int argc, char *argv[]) {
 	if (argc != 3) {
+
 		if (argc < 3) printErrors(NOT_ENOUGH_ARGUMENTS);
 		else printErrors(TOO_MANY_ARGUMENTS);
+
 		exit(1);
 	}
 
@@ -216,6 +220,7 @@ void main(int argc, char *argv[]) {
 	double totalPacketProcessingTime = 0;
 
 	while ((result = readInputPacketFileLine(&IPAddress)) != REACHED_EOF) {
+
 		if (result != OK) {
 			freeIO();
 			freeTrie(root);
