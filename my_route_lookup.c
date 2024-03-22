@@ -138,8 +138,9 @@ void generateTrie(struct Node *root) {
 
 void lookup(uint32_t *IPAddress, int *numberOfAccesses, int *outInterface, struct Node *root) {
 	struct Node *currentNode = root;
-	*numberOfAccesses = 0;
 	uint32_t mask = 1u << 31;
+	*numberOfAccesses = 0;
+	*outInterface = 0;
 
 	for (int i = 0; i < 32; i++) {
 		int bit = (*IPAddress & mask) ? 1 : 0;
@@ -202,13 +203,9 @@ void main(int argc, char *argv[]) {
 
 	struct Node *root = createNode(NULL, NULL);
 	generateTrie(root);
-	int NumberOfNodesInTrie2 = 0;
-	traverseTrie(&NumberOfNodesInTrie2, root);
-	printf("nodes: %d\n", NumberOfNodesInTrie2);
 	compressTrie(root);
 	int NumberOfNodesInTrie = 0;
 	traverseTrie(&NumberOfNodesInTrie, root);
-	printf("compressed nodes: %d\n", NumberOfNodesInTrie);
 	struct timespec initialTime;
 	struct timespec finalTime;
 	uint32_t IPAddress;
