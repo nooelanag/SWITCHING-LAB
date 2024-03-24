@@ -16,6 +16,7 @@
  * Struct for the nodes of the trie
  ***********************************************************************/
 struct Node {
+	int *bit_position;
 	int *outInterface;
 	struct Node *leftSon;
 	struct Node *rightSon;
