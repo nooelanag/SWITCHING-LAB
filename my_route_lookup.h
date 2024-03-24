@@ -16,7 +16,7 @@
  * Struct for the nodes of the trie
  ***********************************************************************/
 struct Node {
-	int *bit_position;
+	int *bitPosition;
 	int *outInterface;
 	struct Node *leftSon;
 	struct Node *rightSon;
@@ -33,7 +33,7 @@ void compressTrie(struct Node *root);
 /***********************************************************************
  * Create the node with the given output interface
  ***********************************************************************/
-struct Node *createNode(int *outInterface, struct Node *root);
+struct Node *createNode(int *bitPosition, int *outInterface, struct Node *root);
 
 
 

@@ -28,7 +28,7 @@ void compressTrie(struct Node *root) {
 }
 
 
-struct Node *createNode(int *outInterface, struct Node *root) {
+struct Node *createNode(int *bitPosition, int *outInterface, struct Node *root) {
     struct Node *node = malloc(sizeof(struct Node));
 
     if (node == NULL) {
@@ -37,6 +37,20 @@ struct Node *createNode(int *outInterface, struct Node *root) {
         printErrors(MEMORY_ALLOCATION_FAILED);
         exit(1);
     }
+
+	if (bitPosition != NULL) {
+		node->bitPosition = malloc(sizeof(int));
+		
+		if (node->bitPosition == NULL) {
+			freeIO();
+            freeNode(node);
+			freeTrie(root);
+            printErrors(MEMORY_ALLOCATION_FAILED);
+        	exit(1);
+        }
+
+		*(node->bitPosition) = *bitPosition;
+	} else node->bitPosition = NULL;
 
     if (outInterface != NULL) {
         node->outInterface = malloc(sizeof(int));
@@ -61,6 +75,7 @@ struct Node *createNode(int *outInterface, struct Node *root) {
 void freeNode(struct Node *node) {
 	if (node != NULL) {
 		if (node->outInterface != NULL) free(node->outInterface);
+		if (node->bitPosition != NULL) free(node->bitPosition);
 
 		free(node);
 	}
@@ -110,20 +125,22 @@ void generateTrie(struct Node *root) {
 			int bit = (prefix & mask) ? 1 : 0;
 			mask = mask >> 1;
 			
+			int bitPosition = i + 1;
+			
 			if (bit == 0) {
 				if (i != prefixLength - 1) {
-					if (currentNode->leftSon == NULL) currentNode->leftSon = createNode(NULL, root);
+					if (currentNode->leftSon == NULL) currentNode->leftSon = createNode(&bitPosition, NULL, root);
 				} else {
-					if (currentNode->leftSon == NULL) currentNode->leftSon = createNode(&outInterface, root);
+					if (currentNode->leftSon == NULL) currentNode->leftSon = createNode(&bitPosition, &outInterface, root);
 					else *(currentNode->leftSon->outInterface) = outInterface;
 				}
 				
 				currentNode = currentNode->leftSon;
 			} else {
 				if (i != prefixLength - 1) {
-					if (currentNode->rightSon == NULL) currentNode->rightSon = createNode(NULL, root);
+					if (currentNode->rightSon == NULL) currentNode->rightSon = createNode(&bitPosition, NULL, root);
 				} else {
-					if (currentNode->rightSon == NULL) currentNode->rightSon = createNode(&outInterface, root);
+					if (currentNode->rightSon == NULL) currentNode->rightSon = createNode(&bitPosition, &outInterface, root);
 					else *(currentNode->rightSon->outInterface) = outInterface;
 				}
 				
@@ -145,14 +162,15 @@ void lookup(uint32_t *IPAddress, int *numberOfAccesses, int *outInterface, struc
 	for (int i = 0; i < 32; i++) {
 		int bit = (*IPAddress & mask) ? 1 : 0;
 		mask = mask >> 1;
-		(*numberOfAccesses)++;
+		if (*(currentNode->bitPosition) == (i + 1)) {
+			(*numberOfAccesses)++;
 
-		if (currentNode->outInterface != NULL) *outInterface = *(currentNode->outInterface);
+			if (currentNode->outInterface != NULL) *outInterface = *(currentNode->outInterface);
 
-		if (bit == 0 && currentNode->leftSon != NULL) currentNode = currentNode->leftSon;
-		else if (bit == 1 && currentNode->rightSon != NULL) currentNode = currentNode->rightSon;
-		else break;
-
+			if (bit == 0 && currentNode->leftSon != NULL) currentNode = currentNode->leftSon;
+			else if (bit == 1 && currentNode->rightSon != NULL) currentNode = currentNode->rightSon;
+			else break;
+		}
 	}
 }
 
@@ -201,7 +219,8 @@ void main(int argc, char *argv[]) {
 		exit(1);
 	}
 
-	struct Node *root = createNode(NULL, NULL);
+	int bitPosition = 1;
+	struct Node *root = createNode(&bitPosition, NULL, NULL);
 	generateTrie(root);
 	compressTrie(root);
 	int NumberOfNodesInTrie = 0;
