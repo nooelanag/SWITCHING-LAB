@@ -2,7 +2,7 @@
 #include "my_route_lookup.h"
 
 
-int bitComparison(uint32_t *IPAddress, struct Node *node) {
+int bitIPAddress(uint32_t *IPAddress, struct Node *node) {
     uint32_t mask = 1u << (31 - (*(node->bitPosition - 1)));
     return (*IPAddress & mask) != 0;
 }
@@ -10,10 +10,14 @@ int bitComparison(uint32_t *IPAddress, struct Node *node) {
 
 int bitStringComparison(uint32_t *IPAddress, struct Node *node) {
 	uint32_t mask = 1u << 31;
+	printf("IP address: %d.%d.%d.%d\n", *(IPAddress) >> 24, (*(IPAddress) << 8) >> 24, (*(IPAddress) << 16) >> 24, (*(IPAddress) << 24) >> 24);
+	printf("Prefix: %d.%d.%d.%d/%d\n", *(node->bitString) >> 24, (*(node->bitString) << 8) >> 24, (*(node->bitString) << 16) >> 24, (*(node->bitString) << 24) >> 24, *(node->bitPosition));
 
 	for (int i = 0; i < *(node->bitPosition); i++) {
 		int bitIPAddress = (*IPAddress & mask) != 0;
 		int bitPrefix = (*(node->bitString) & mask) != 0;
+		printf("IP address: %d\n", bitIPAddress);
+		printf("Prefix: %d\n", bitPrefix);
 		
 		if (bitIPAddress != bitPrefix) return 0;
 
@@ -129,7 +133,6 @@ void freeTrie(struct Node *root) {
 }
 
 
-
 void generateTrie(struct Node *root) {
 	struct Node *currentNode = root;
 	int outInterface;
@@ -163,8 +166,7 @@ void generateTrie(struct Node *root) {
 		for (int i = 0; i < prefixLength; i++) {
 			int bit = (prefix & mask) ? 1 : 0;
 			mask = mask >> 1;
-			
-			int bitPosition = i + 1;
+			int bitPosition = i + 1; //i + 2;
 			
 			if (bit == 0) {
 				if (i != prefixLength - 1) {
@@ -201,14 +203,8 @@ void generateTrie(struct Node *root) {
 void lookup(uint32_t *IPAddress, int *numberOfAccesses, int *outInterface, struct Node *root) {
 	struct Node *currentNode = root;
 	//uint32_t mask = 1u << 31;
-	*numberOfAccesses = 1;
-	*outInterface = 0;
 
-	for (int i = 0; i < 32; i++) {
-		/*int bit = (*IPAddress & mask) ? 1 : 0;
-		mask = mask >> 1;
-		int bitPosition = i + 1;
-		printf("%d", bit);*/
+	/*for (int i = 0; i < 32; i++) {
 		
 		if (currentNode->outInterface != NULL) {
 			*outInterface = *(currentNode->outInterface);
@@ -229,7 +225,7 @@ void lookup(uint32_t *IPAddress, int *numberOfAccesses, int *outInterface, struc
 						if (bitStringComparison(IPAddress, currentNode->leftSon) == 1) {
 							*(numberOfAccesses)++;
 							currentNode = currentNode->leftSon;
-						} else if (bitComparison(IPAddress, currentNode->leftSon) == 0) {
+						} else if (bitComparison(IPAddress, currentNode->rightSon) == 1) {
 							*(numberOfAccesses)++;
 							currentNode = currentNode->leftSon;
 						}
@@ -237,7 +233,7 @@ void lookup(uint32_t *IPAddress, int *numberOfAccesses, int *outInterface, struc
 						if (bitStringComparison(IPAddress, currentNode->rightSon) == 1) {
 							*(numberOfAccesses)++;
 							currentNode = currentNode->rightSon;
-						} else if (bitComparison(IPAddress, currentNode->rightSon) == 1) {
+						} else if (bitComparison(IPAddress, currentNode->leftSon) == 0) {
 							*(numberOfAccesses)++;
 							currentNode = currentNode->rightSon;
 						}
@@ -289,20 +285,85 @@ void lookup(uint32_t *IPAddress, int *numberOfAccesses, int *outInterface, struc
 				}
 			}
 		} else break;
-	
-		/*if (bit == 0 && currentNode->leftSon != NULL) {
-			if (*currentNode->leftSon->bitPosition == bitPosition) {
-				(*numberOfAccesses)++;
-				currentNode = currentNode->leftSon;
+	}*/
+
+	if (currentNode->outInterface != NULL) *outInterface = *(currentNode->outInterface);
+
+	if (currentNode->leftSon != NULL && currentNode->rightSon != NULL) {
+		if (*(currentNode->leftSon->bitPosition) <= *(currentNode->leftSon->bitPosition)) {
+			if (bitIPAddress(IPAddress, currentNode->leftSon) == 0) {
+				if (currentNode->leftSon->bitString != NULL) {
+					if (bitStringComparison(IPAddress, currentNode->leftSon) == 1) {
+						(*numberOfAccesses)++;
+						lookup(IPAddress, numberOfAccesses, outInterface, currentNode->leftSon);
+					}
+				} else {
+					(*numberOfAccesses)++;
+					lookup(IPAddress, numberOfAccesses, outInterface, currentNode->leftSon);
+				}
 			}
-		} else if (bit == 1 && currentNode->rightSon != NULL) {
-			if (*currentNode->rightSon->bitPosition == bitPosition) {
-				(*numberOfAccesses)++;
-				currentNode = currentNode->rightSon;
+
+			if (bitIPAddress(IPAddress, currentNode->rightSon) == 1) {
+				if (currentNode->rightSon->bitString != NULL) {
+					if (bitStringComparison(IPAddress, currentNode->rightSon) == 1) {
+						(*numberOfAccesses)++;
+						lookup(IPAddress, numberOfAccesses, outInterface, currentNode->rightSon);
+					}
+				} else {
+					(*numberOfAccesses)++;
+					lookup(IPAddress, numberOfAccesses, outInterface, currentNode->rightSon);
+				}
 			}
-		} else break;*/
-	}
-	//printf("\n");
+		} else {
+			if (bitIPAddress(IPAddress, currentNode->rightSon) == 1) {
+				if (currentNode->rightSon->bitString != NULL) {
+					if (bitStringComparison(IPAddress, currentNode->rightSon) == 1) {
+						(*numberOfAccesses)++;
+						lookup(IPAddress, numberOfAccesses, outInterface, currentNode->rightSon);
+					}
+				} else {
+					(*numberOfAccesses)++;
+					lookup(IPAddress, numberOfAccesses, outInterface, currentNode->rightSon);
+				}
+			}
+
+			if (bitIPAddress(IPAddress, currentNode->leftSon) == 0) {
+				if (currentNode->leftSon->bitString != NULL) {
+					if (bitStringComparison(IPAddress, currentNode->leftSon) == 1) {
+						(*numberOfAccesses)++;
+						lookup(IPAddress, numberOfAccesses, outInterface, currentNode->leftSon);
+					}
+				} else {
+					(*numberOfAccesses)++;
+					lookup(IPAddress, numberOfAccesses, outInterface, currentNode->leftSon);
+				}
+			}
+		}
+	} else if (currentNode->leftSon != NULL && currentNode->rightSon == NULL) {
+		if (bitIPAddress(IPAddress, currentNode->leftSon) == 0) {
+			if (currentNode->leftSon->bitString != NULL) {
+				if (bitStringComparison(IPAddress, currentNode->leftSon) == 1) {
+					(*numberOfAccesses)++;
+					lookup(IPAddress, numberOfAccesses, outInterface, currentNode->leftSon);
+				}
+			} else {
+				(*numberOfAccesses)++;
+				lookup(IPAddress, numberOfAccesses, outInterface, currentNode->leftSon);
+			}
+		}
+	} else if (currentNode->leftSon == NULL && currentNode->rightSon != NULL) {
+		if (bitIPAddress(IPAddress, currentNode->rightSon) == 1) {
+			if (currentNode->rightSon->bitString != NULL) {
+				if (bitStringComparison(IPAddress, currentNode->rightSon) == 1) {
+					(*numberOfAccesses)++;
+					lookup(IPAddress, numberOfAccesses, outInterface, currentNode->rightSon);
+				}
+			} else {
+				(*numberOfAccesses)++;
+				lookup(IPAddress, numberOfAccesses, outInterface, currentNode->rightSon);
+			}
+		}
+	} else return;
 }
 
 
@@ -362,7 +423,7 @@ void main(int argc, char *argv[]) {
 		exit(1);
 	}
 
-	int bitPosition = 1;
+	int bitPosition = 0; //1
 	struct Node *root = createNode(&bitPosition, NULL, NULL, NULL);
 	generateTrie(root);
 	compressTrie(root);
@@ -372,8 +433,8 @@ void main(int argc, char *argv[]) {
 
 	struct timespec initialTime, finalTime;
 	uint32_t IPAddress;
-	int numberOfAccesses = 0;
-	int outInterface;
+	int numberOfAccesses = 1;
+	int outInterface = 0;
 	int processedPackets = 0;
 	double searchingTime;
 	int totalNodeAccesses = 0;
@@ -395,6 +456,8 @@ void main(int argc, char *argv[]) {
 		processedPackets++;
 		totalNodeAccesses += numberOfAccesses;
 		totalPacketProcessingTime += searchingTime;
+		numberOfAccesses = 1;
+		outInterface = 0;
 	}
 	
 	printSummary(NumberOfNodesInTrie, processedPackets, (double) (totalNodeAccesses / processedPackets), (double) (totalPacketProcessingTime / processedPackets));
