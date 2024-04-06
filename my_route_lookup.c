@@ -3,7 +3,7 @@
 
 
 int bitIPAddress(uint32_t *IPAddress, struct Node *node) {
-    uint32_t mask = 1u << (32 - *(node->bitPosition ));
+    uint32_t mask = 1u << (32 - *(node->bitPosition));
     return (*IPAddress & mask) != 0;
 }
 
