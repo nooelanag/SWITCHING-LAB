@@ -1,6 +1,6 @@
 # Route Lookup Program
 
-This program, `my_route_lookup`, is designed to perform IP route lookup using a binary trie data structure. It reads routing table information from a file and performs lookups for given IP addresses. The program is equipped with several functionalities including trie generation, trie compression, IP address lookup, error handling, and performance evaluation.
+This program is designed to perform IP route lookup using a binary trie data structure. It reads routing table information from a file and performs lookups for given IP addresses. The program is equipped with several functionalities including trie generation, trie compression, IP address lookup, error handling, and performance evaluation.
 
 ## Usage
 
