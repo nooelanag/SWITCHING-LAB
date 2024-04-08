@@ -2,376 +2,337 @@
 #include "my_route_lookup.h"
 
 
-int bitIPAddress(uint32_t *IPAddress, struct Node *node) {
-    uint32_t mask = 1u << (32 - *(node->bitPosition));
-    return (*IPAddress & mask) != 0;
+int addressPrefixComparison(const uint32_t IPAddress, const char *prefixString, int *result) {
+	if (prefixString[0] == '*') {
+		*result = OK;
+		return MATCH;
+	}
+
+	int prefixLength = strlen(prefixString);
+	char *IPAddressString = uint32ToString(IPAddress, prefixLength, result);
+	if (*result != OK) return *result;
+
+	int comparison = strcmp(IPAddressString, prefixString);
+	free(IPAddressString);
+	*result = OK;
+	return (comparison == 0) ? MATCH : NOT_MATCH;
 }
 
 
-int bitStringComparison(uint32_t *IPAddress, struct Node *node) {
-	uint32_t mask = 1u << 31;
-
-	if (*(node->bitPosition) == 1) return 1;
-
-	for (int i = 0; i < *(node->bitPosition) - 1; i++) {
-		int bitIPAddress = (*IPAddress & mask) != 0;
-		int bitPrefix = (*(node->bitString) & mask) != 0;
-		
-		if (bitIPAddress != bitPrefix) return 0;
-
-		mask = mask >> 1;
+int bitIPAddress(const uint32_t IPAddress, const int position, int *result) {
+	if (position < 1 || position > 32) {
+		*result = NOT_VALID_POSITION;
+		return *result;
 	}
 
-	return 1;
+	*result = OK;
+	return (IPAddress >> (32 - position)) & 1;
 }
 
 
 void compressTrie(struct Node *node) {
-	if (node != NULL) {
-		struct Node *child = NULL;
+	if (node == NULL) return;
 
-		if (node->leftSon != NULL && node->rightSon == NULL) child = node->leftSon;
-		else if (node->leftSon == NULL && node->rightSon != NULL) child = node->rightSon;
+	if ((node->leftSon != NULL) ^ (node->rightSon != NULL)) {
+		struct Node *childNode = (node->leftSon != NULL) ? node->leftSon : node->rightSon;
 
-		if (child != NULL) {
-			if (node->bitString == NULL && node->outInterface == NULL) {
-				free(node->bitPosition);
-				node->bitPosition = child->bitPosition;
-				node->bitString = child->bitString;
-				node->outInterface = child->outInterface;
-				node->leftSon = child->leftSon;
-				node->rightSon = child->rightSon;
-				free(child);
-				compressTrie(node);
-			} else if (child->bitString == NULL && child->outInterface == NULL) {
-				free(node->bitPosition);
-				node->bitPosition = child->bitPosition;
-				node->leftSon = child->leftSon;
-				node->rightSon = child->rightSon;
-				free(child->bitString);
-				free(child->outInterface);
-				free(child);
-				compressTrie(node);
+		if (node->prefixString == NULL || childNode->prefixString == NULL) {
+			if (node->prefixString == NULL && childNode->prefixString != NULL) {
+				node->prefixString = childNode->prefixString;
+				node->outInterface = childNode->outInterface;
 			}
-		}
 
-		compressTrie(node->leftSon);
-		compressTrie(node->rightSon);
+			free(node->bitPosition);
+			node->bitPosition = childNode->bitPosition;
+			node->leftSon = childNode->leftSon;
+			node->rightSon = childNode->rightSon;
+			free(childNode);
+			compressTrie(node);
+		}
 	}
+
+	compressTrie(node->leftSon);
+	compressTrie(node->rightSon);
 }
 
 
-struct Node *createNode(int *bitPosition, uint32_t *bitString, int *outInterface, struct Node *root) {
-    struct Node *node = malloc(sizeof(struct Node));
+struct Node *createNode(const int *bitPosition, char *prefixString, const int *outInterface, int *result) {
+	struct Node *node = malloc(sizeof(struct Node));
+	if (node == NULL) {
+		*result = MEMORY_ALLOCATION_FAILED;
+		return NULL;
+	}
 
-    if (node == NULL) {
-		freeIO();
-		freeTrie(root);
-        printErrors(MEMORY_ALLOCATION_FAILED);
-        exit(1);
-    }
+	node->bitPosition = NULL;
+	node->prefixString = prefixString;
+	node->outInterface = NULL;
+	node->leftSon = NULL;
+	node->rightSon = NULL;
 
 	if (bitPosition != NULL) {
 		node->bitPosition = malloc(sizeof(int));
-		
 		if (node->bitPosition == NULL) {
-			freeIO();
-            freeNode(node);
-			freeTrie(root);
-            printErrors(MEMORY_ALLOCATION_FAILED);
-        	exit(1);
-        }
+			freeNode(node);
+			*result = MEMORY_ALLOCATION_FAILED;
+			return NULL;
+		}
 
 		*(node->bitPosition) = *bitPosition;
-	} else node->bitPosition = NULL;
+	}
 
-	if (bitString != NULL) {
-		node->bitString = malloc(sizeof(uint32_t));
-		
-		if (node->bitString == NULL) {
-			freeIO();
-            freeNode(node);
-			freeTrie(root);
-            printErrors(MEMORY_ALLOCATION_FAILED);
-        	exit(1);
-        }
+	if (outInterface != NULL) {
+		node->outInterface = malloc(sizeof(int));
+		if (node->outInterface == NULL) {
+			freeNode(node);
+			*result = MEMORY_ALLOCATION_FAILED;
+			return NULL;
+		}
 
-		*(node->bitString) = *bitString;
-	} else node->bitString = NULL;
+		*(node->outInterface) = *outInterface;
+	}
 
-    if (outInterface != NULL) {
-        node->outInterface = malloc(sizeof(int));
-
-        if (node->outInterface == NULL) {
-			freeIO();
-            freeNode(node);
-			freeTrie(root);
-            printErrors(MEMORY_ALLOCATION_FAILED);
-        	exit(1);
-        }
-
-        *(node->outInterface) = *outInterface;
-    } else node->outInterface = NULL;
-
-    node->leftSon = NULL;
-    node->rightSon = NULL;
-    return node;
+	*result = OK;
+	return node;
 }
 
 
 void freeNode(struct Node *node) {
-	if (node != NULL) {
-		if (node->bitPosition != NULL) free(node->bitPosition);
-		if (node->bitString != NULL) free(node->bitString);
-		if (node->outInterface != NULL) free(node->outInterface);
-
-		free(node);
-	}
+	if (node == NULL) return;
+	if (node->bitPosition != NULL) free(node->bitPosition);
+	if (node->prefixString != NULL) free(node->prefixString);
+	if (node->outInterface != NULL) free(node->outInterface);
+	free(node);
 }
 
 
-void freeTrie(struct Node *root) {
-    if (root == NULL) return;
-
-    freeTrie(root->leftSon);
-    freeTrie(root->rightSon);
-    freeNode(root);
+void freeTrie(struct Node *node) {
+	if (node == NULL) return;
+	freeTrie(node->leftSon);
+	freeTrie(node->rightSon);
+	freeNode(node);
 }
 
 
-void generateTrie(struct Node *root) {
+struct Node *generateTrie(int *result) {
+	int bitPosition = 1;
+	struct Node *root = createNode(&bitPosition, NULL, NULL, result);
+	if (*result != OK) return NULL;
+
 	struct Node *currentNode;
-	int outInterface;
+	int bit, outInterface, prefixLength;
 	uint32_t prefix;
-	int prefixLength;
-	int result;
 
-	while((result = readFIBLine(&prefix, &prefixLength, &outInterface)) != REACHED_EOF) {
-		if (result != OK) {
-			freeIO();
+	while ((*result = readFIBLine(&prefix, &prefixLength, &outInterface)) != REACHED_EOF) {
+		if (*result != OK) {
 			freeTrie(root);
-			printIOExplanationError(result);
-			exit(1);
+			return NULL;
 		}
 
-		currentNode = root;
-		
 		if (prefixLength == 0) {
-			if (root->bitString == NULL) {
-				root->bitString = malloc(sizeof(uint32_t));
-
-				if (root->bitString == NULL) {
-					freeIO();
-            		freeTrie(root);
-            		printErrors(MEMORY_ALLOCATION_FAILED);
-        			exit(1);
-        		}
-			}
-
+			if (root->outInterface == NULL) root->outInterface = malloc(sizeof(int));
 			if (root->outInterface == NULL) {
-				root->outInterface = malloc(sizeof(int));
-
-				if (root->outInterface == NULL) {
-					freeIO();
-            		freeTrie(root);
-            		printErrors(MEMORY_ALLOCATION_FAILED);
-        			exit(1);
-        		}
+				freeTrie(root);
+				return NULL;
 			}
 
 			*(root->outInterface) = outInterface;
 		}
 
-		uint32_t mask = 1u << 31;
-		
+		bitPosition = 1;
+		currentNode = root;
+
 		for (int i = 0; i < prefixLength; i++) {
-			int bit = (prefix & mask) != 0;
-			mask = mask >> 1;
-			int bitPosition = i + 2;
-			
-			if (bit == 0) {
-				if (i != prefixLength - 1) {
-					if (currentNode->leftSon == NULL) currentNode->leftSon = createNode(&bitPosition, NULL, NULL, root);
-				} else {
-					if (currentNode->leftSon == NULL) currentNode->leftSon = createNode(&bitPosition, &prefix, &outInterface, root);
-					else {
-						currentNode->leftSon->bitString = malloc(sizeof(uint32_t));
-
-						if (currentNode->leftSon->bitString == NULL) {
-							freeIO();
-							freeTrie(root);
-            				printErrors(MEMORY_ALLOCATION_FAILED);
-        					exit(1);
-        				}
-
-						*(currentNode->leftSon->bitString) = prefix;
-
-						currentNode->leftSon->outInterface = malloc(sizeof(int));
-
-						if (currentNode->leftSon->outInterface == NULL) {
-							freeIO();
-							freeTrie(root);
-            				printErrors(MEMORY_ALLOCATION_FAILED);
-        					exit(1);
-        				}
-
-						*(currentNode->leftSon->outInterface) = outInterface;
-					}
-				}
-				
-				currentNode = currentNode->leftSon;
-			} else {
-				if (i != prefixLength - 1) {
-					if (currentNode->rightSon == NULL) currentNode->rightSon = createNode(&bitPosition, NULL, NULL, root);
-				} else {
-					if (currentNode->rightSon == NULL) currentNode->rightSon = createNode(&bitPosition, &prefix, &outInterface, root);
-					else {
-						currentNode->rightSon->bitString = malloc(sizeof(uint32_t));
-
-						if (currentNode->rightSon->bitString == NULL) {
-							freeIO();
-							freeTrie(root);
-            				printErrors(MEMORY_ALLOCATION_FAILED);
-        					exit(1);
-        				}
-
-						*(currentNode->rightSon->bitString) = prefix;
-
-						currentNode->rightSon->outInterface = malloc(sizeof(int));
-
-						if (currentNode->rightSon->outInterface == NULL) {
-							freeIO();
-							freeTrie(root);
-            				printErrors(MEMORY_ALLOCATION_FAILED);
-        					exit(1);
-        				}
-
-						*(currentNode->rightSon->outInterface) = outInterface;
-					}
-				}
-				
-				currentNode = currentNode->rightSon;
+			bit = bitIPAddress(prefix, bitPosition, result);
+			if (*result != OK) {
+				freeTrie(root);
+				return NULL;
 			}
+
+			bitPosition++;
+			struct Node **sonPtr = (bit == 0) ? &(currentNode->leftSon) : &(currentNode->rightSon);
+
+			if (*sonPtr == NULL) {
+				*sonPtr = createNode((bitPosition <= 32) ? &bitPosition : NULL, NULL, NULL, result);
+				if (*result != OK) {
+					freeTrie(root);
+					return NULL;
+				}
+			}
+
+			if (i == prefixLength - 1) {
+				(*sonPtr)->prefixString = uint32ToString(prefix, prefixLength, result);
+				if (*result != OK) {
+					freeTrie(root);
+					return NULL;
+				}
+
+				if ((*sonPtr)->outInterface == NULL) (*sonPtr)->outInterface = malloc(sizeof(int));
+				if ((*sonPtr)->outInterface == NULL) {
+					freeTrie(root);
+					*result = MEMORY_ALLOCATION_FAILED;
+					return NULL;
+				}
+				*((*sonPtr)->outInterface) = outInterface;
+			}
+
+			currentNode = *sonPtr;
 		}
 	}
+
+	*result = OK;
+	return root;
 }
 
 
-void lookup(uint32_t *IPAddress, int *numberOfAccesses, int *outInterface, struct Node *root) {
+int lookup(const uint32_t IPAddress, int *outInterface, int *result, struct Node *root) {
 	struct Node *currentNode = root;
+	int bit, match, numberOfAccesses = 0;
+	*outInterface = 0;
 
-	if (currentNode->bitString != NULL && bitStringComparison(IPAddress, currentNode) == 1) {
-		if (currentNode->outInterface != NULL) *outInterface = *(currentNode->outInterface);
+	while (currentNode != NULL) {
+		numberOfAccesses++;
+		if (currentNode->prefixString != NULL) {
+			match = addressPrefixComparison(IPAddress, currentNode->prefixString, result);
+			if (*result != OK) return *result;
+			else if (match == MATCH) *outInterface = *(currentNode->outInterface);
+		}
+
+		if (currentNode->bitPosition == NULL) break;
+		bit = bitIPAddress(IPAddress, *(currentNode->bitPosition), result);
+		if (*result != OK) return *result;
+		if (bit == 0) currentNode = currentNode->leftSon;
+		else currentNode = currentNode->rightSon;
 	}
 
-	if (currentNode->leftSon != NULL && bitIPAddress(IPAddress, currentNode) == 0) {
-		currentNode = currentNode->leftSon;
-		(*numberOfAccesses)++;
-		lookup(IPAddress, numberOfAccesses, outInterface, currentNode);
-	} else if (currentNode->rightSon != NULL && bitIPAddress(IPAddress, currentNode) == 1) {
-		currentNode = currentNode->rightSon;
-		(*numberOfAccesses)++;
-		lookup(IPAddress, numberOfAccesses, outInterface, currentNode);
+	return numberOfAccesses;
+}
+
+
+void printErrors(const int result) {
+	switch (result) {
+		case NOT_ENOUGH_ARGUMENTS:
+			printf("Not enough arguments\n");
+			break;
+		case TOO_MANY_ARGUMENTS:
+			printf("Too many arguments\n");
+			break;
+		case MEMORY_ALLOCATION_FAILED:
+			printf("Memory allocation failed\n");
+			break;
+		case NOT_VALID_PREFIX_LENGTH:
+			printf("Not valid prefix length\n");
+			break;
+		case NOT_VALID_POSITION:
+			printf("Not valid position\n");
+			break;
+		default:
+			printf("Unknown error\n");
+			break;
 	}
 }
 
 
-void printErrors(int result) {
-	switch(result) {
-	case NOT_ENOUGH_ARGUMENTS:
-		printf("Not enough arguments\n");
-		break;
-	case TOO_MANY_ARGUMENTS:
-		printf("Too many arguments\n");
-		break;
-	case MEMORY_ALLOCATION_FAILED:
-		printf("Memory allocation failed\n");
-	default:
-		printf("Unknown error\n");
-		break;
-	}
+int traverseTrie(struct Node *node) {
+	if (node == NULL) return 0;
+	return 1 + traverseTrie(node->leftSon) + traverseTrie(node->rightSon);
 }
 
 
-void traverseTrie(int *NumberOfNodesInTrie, struct Node *root) {
-	if (root != NULL) {
-		(*NumberOfNodesInTrie)++;
-		traverseTrie(NumberOfNodesInTrie, root->leftSon);
-		traverseTrie(NumberOfNodesInTrie, root->rightSon);
+char *uint32ToString(const uint32_t IPAddress, const int prefixLength, int *result) {
+	if (prefixLength < 0 || prefixLength > 32) {
+		*result = NOT_VALID_PREFIX_LENGTH;
+		return NULL;
 	}
+
+	if (prefixLength == 0) {
+		char *bitString = malloc(2 * sizeof(char));
+		if (bitString == NULL) {
+			*result = MEMORY_ALLOCATION_FAILED;
+			return NULL;
+		}
+		bitString[0] = '*';
+		bitString[1] = '\0';
+		*result = OK;
+		return bitString;
+	}
+
+	char *bitString = malloc((prefixLength + 1) * sizeof(char));
+	if (bitString == NULL) {
+		*result = MEMORY_ALLOCATION_FAILED;
+		return NULL;
+	}
+
+	for (int i = 1; i <= prefixLength; i++) {
+		bitString[i - 1] = bitIPAddress(IPAddress, i, result) ? '1' : '0';
+		if (*result != OK) {
+			free(bitString);
+			return NULL;
+		}
+	}
+	bitString[prefixLength] = '\0';
+	*result = OK;
+	return bitString;
 }
 
 
-/*int traverseTrie2(struct Node *root) {
-    if (root == NULL) {
-        return 0;
-    }
-
-    int leftNodes = traverseTrie2(root->leftSon);
-    int rightNodes = traverseTrie2(root->rightSon);
-    
-    return 1 + leftNodes + rightNodes;
-}*/
-
-
-void main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
 	if (argc != 3) {
 		if (argc < 3) printErrors(NOT_ENOUGH_ARGUMENTS);
 		else printErrors(TOO_MANY_ARGUMENTS);
-
-		exit(1);
+		return 1;
 	}
 
 	char *routingTableName = argv[1];
 	char *inputFileName = argv[2];
-	int result;
 
-	if ((result = initializeIO(routingTableName, inputFileName)) != OK) {
+	int result = initializeIO(routingTableName, inputFileName);
+	if (result != OK) {
 		printIOExplanationError(result);
-		exit(1);
+		return 1;
 	}
 
-	int bitPosition = 1;
-	struct Node *root = createNode(&bitPosition, NULL, NULL, NULL);
-	generateTrie(root);
+	struct Node *root = generateTrie(&result);
+	if (result != OK) {
+		freeIO();
+		printErrors(result);
+		return 1;
+	}
+
 	compressTrie(root);
-
-	int NumberOfNodesInTrie = 0;
-	traverseTrie(&NumberOfNodesInTrie, root);
-	/*int NumberOfNodesInTrie2 = traverseTrie2(root);
-	printf("Number of nodes in trie 2: %d\n", NumberOfNodesInTrie2);*/
-
 	struct timespec initialTime, finalTime;
 	uint32_t IPAddress;
-	int numberOfAccesses;
-	int outInterface;
-	int processedPackets = 0;
-	double searchingTime = 0;
-	int totalNodeAccesses = 0;
-	double totalPacketProcessingTime = 0;
+	int numberOfAccesses, outInterface, processedPackets = 0, totalNodeAccesses = 0;
+	double searchingTime = 0, totalPacketProcessingTime = 0;
 
 	while ((result = readInputPacketFileLine(&IPAddress)) != REACHED_EOF) {
-
 		if (result != OK) {
 			freeIO();
 			freeTrie(root);
 			printIOExplanationError(result);
-			exit(1);
+			return 1;
 		}
 
-		numberOfAccesses = 1;
-		outInterface = 0;
 		clock_gettime(CLOCK_MONOTONIC_RAW, &initialTime);
-		lookup(&IPAddress, &numberOfAccesses, &outInterface, root);
+		numberOfAccesses = lookup(IPAddress, &outInterface, &result, root);
 		clock_gettime(CLOCK_MONOTONIC_RAW, &finalTime);
+		if (result != OK) {
+			freeIO();
+			freeTrie(root);
+			printErrors(result);
+			return 1;
+		}
+
 		printOutputLine(IPAddress, outInterface, &initialTime, &finalTime, &searchingTime, numberOfAccesses);
 		processedPackets++;
 		totalNodeAccesses += numberOfAccesses;
 		totalPacketProcessingTime += searchingTime;
 	}
-	
-	printSummary(NumberOfNodesInTrie, processedPackets, (double) (totalNodeAccesses / processedPackets), (double) (totalPacketProcessingTime / processedPackets));
+
+	int numberOfNodesInTrie = traverseTrie(root);
+	double averageNodeAccesses = (double)totalNodeAccesses / processedPackets;
+	double averagePacketProcessingTime = (double)totalPacketProcessingTime / processedPackets;
+	printSummary(numberOfNodesInTrie, processedPackets, averageNodeAccesses, averagePacketProcessingTime);
 	freeIO();
 	freeTrie(root);
-	exit(0);
+	return 0;
 }
