@@ -1,4 +1,4 @@
-##HOW TO RUN THE CODE:
+## HOW TO RUN THE CODE:
 
 In order to run this program we created a MAKEFILE.
 In the terminal go to the directory where the files have been downloaded.
