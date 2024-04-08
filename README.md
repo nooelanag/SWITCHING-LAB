@@ -16,15 +16,15 @@ This will generate an executable named `my_route_lookup`.
 
 You can execute predefined tests using the following commands:
 
-- Test 1:
+- Prueba 1:
   ```bash
   make test1
   ```
-- Test 2:
+- Prueba 2:
   ```bash
   make test2
   ```
-- Test 3:
+- Prueba 3:
   ```bash
   make test3
   ```
@@ -33,15 +33,15 @@ You can execute predefined tests using the following commands:
 
 To check for memory leaks, you can run tests with Valgrind:
 
-- Test 1:
+- Prueba 1:
   ```bash
   make valgrind1
   ```
-- Test 2:
+- Prueba 2:
   ```bash
   make valgrind2
   ```
-- Test 3:
+- Prueba 3:
   ```bash
   make valgrind3
   ```
