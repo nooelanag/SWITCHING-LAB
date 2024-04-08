@@ -60,4 +60,39 @@ To check for memory leaks, you can run tests with Valgrind:
 - `my_route_lookup.c`: Contains the main program logic.
 - `my_route_lookup.h`: Header file defining function prototypes and constants.
 - `io.c`, `io.h`: Input/output operations for file handling.
+- `utils.c`, `utils.h`: Utility functions used within the program.
+
+## Compilation Flags
+
+- `-Wall`: Enables most compiler warnings.
+- `-O3`: Optimization level 3 for better performance.
+- `-lm`: Links the math library.
+
+## Dependencies
+
+This program requires the following files:
+
+- `assets/routing_table.txt`: Routing table information.
+- `assets/prueba1.txt`, `assets/prueba2.txt`, `assets/prueba3.txt`: Test files containing IP addresses for lookup.
+
+## Cleaning Up
+
+To remove the compiled executable, run:
+
+```bash
+make clean
+```
+
+## Author
+
+This program was developed for the RL Lab 2020 Switching UC3M.
+
+## Disclaimer
+
+This program is provided as-is without any guarantees. Use it at your own risk.
+
+
+- `my_route_lookup.c`: Contains the main program logic.
+- `my_route_lookup.h`: Header file defining function prototypes and constants.
+- `io.c`, `io.h`: Input/output operations for file handling.
 - `
