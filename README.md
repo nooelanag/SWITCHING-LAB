@@ -73,4 +73,4 @@ make clean
 
 ## Authors
 
-Noel Andolz Aguado y Daniel Lozano Uceda
+Noel Andolz Aguado (100451366) y Daniel Lozano Uceda (100451550)
